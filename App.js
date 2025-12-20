@@ -1,36 +1,74 @@
 // Import StatusBar component from expo-status-bar (controls status bar styling)
 import { StatusBar } from 'expo-status-bar';
 
-// Import core React Native components
-// - StyleSheet: Object for defining styles
-// - Text: Component for displaying text (similar to HTML's <p>, <span>)
-// - View: Container component (similar to HTML's <div>)
-import { StyleSheet, Text, View } from 'react-native';
+// Import React Navigation components
+// - NavigationContainer: Wrapper component that manages navigation state
+// - createBottomTabNavigator: Function to create bottom tab navigation
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+// Import screen components
+import HomeScreen from './screens/HomeScreen';
+import SearchScreen from './screens/SearchScreen';
+import SettingsScreen from './screens/SettingsScreen';
+
+// Create bottom tab navigator
+// Tab: Object containing Screen component and Navigator component
+const Tab = createBottomTabNavigator();
 
 // Main App component - entry point of the app
 // export default: Exports this component so it can be imported in other files
 export default function App() {
-  // Return JSX (JavaScript + XML)
   return (
-    // View: Top-level container - applies styles.container styling
-    <View style={styles.container}>
-      {/* Text: Displays text on screen - In React Native, text must always be wrapped in Text component */}
-      <Text>Open up App.js to start working on your app!</Text>
+    // NavigationContainer: Root component for navigation
+    // Must wrap all navigators
+    <NavigationContainer>
+      {/* Tab.Navigator: Creates bottom tab navigation bar */}
+      <Tab.Navigator
+        screenOptions={{
+          // Tab bar styling options
+          tabBarActiveTintColor: 'blue',      // Color of active tab icon/label
+          tabBarInactiveTintColor: 'gray',    // Color of inactive tab icon/label
+          headerStyle: {
+            backgroundColor: '#f4511e',       // Header background color
+          },
+          headerTintColor: '#fff',            // Header text color
+          headerTitleStyle: {
+            fontWeight: 'bold',               // Header text style
+          },
+        }}
+      >
+        {/* Tab.Screen: Individual tab screen */}
+        {/* name: Tab identifier, component: Screen component to display */}
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            // Tab configuration options
+            tabBarLabel: 'Home',              // Label shown in tab bar
+            headerTitle: 'Home',              // Title shown in header
+          }}
+        />
+        <Tab.Screen
+          name="Search"
+          component={SearchScreen}
+          options={{
+            tabBarLabel: 'Search',
+            headerTitle: 'Search',
+          }}
+        />
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            tabBarLabel: 'Settings',
+            headerTitle: 'Settings',
+          }}
+        />
+      </Tab.Navigator>
 
       {/* StatusBar: Controls status bar style (area showing time, battery, etc.) */}
       <StatusBar style="auto" />
-    </View>
+    </NavigationContainer>
   );
 }
-
-// StyleSheet.create(): Creates a style object
-// Similar to CSS but written as JavaScript object
-const styles = StyleSheet.create({
-  // container: Styles applied to View component
-  container: {
-    flex: 1,              // flex: 1 - Takes up all available space
-    backgroundColor: '#fff', // Background color: white
-    alignItems: 'center',    // Horizontal center alignment (same as CSS align-items)
-    justifyContent: 'center', // Vertical center alignment (same as CSS justify-content)
-  },
-});
