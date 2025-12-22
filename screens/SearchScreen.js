@@ -1,36 +1,106 @@
-// Import React Native components
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, TextInput } from 'react-native';
+import { useState } from 'react';
 
-// SearchScreen component - displayed when Search tab is active
 export default function SearchScreen() {
+  const [searchText, setSearchText] = useState('');
+
   return (
-    // Container view with centered content
     <View style={styles.container}>
-      {/* Display screen title */}
-      <Text style={styles.title}>Search Screen</Text>
-      <Text style={styles.subtitle}>Find what you're looking for!</Text>
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="검색어 입력..."
+          placeholderTextColor="#999"
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+      </View>
+
+      {!searchText && (
+        <View style={styles.recentContainer}>
+          <Text style={styles.sectionTitle}>최근 검색어</Text>
+          <View style={styles.recentItem}>
+            <Text style={styles.recentText}>프로젝트</Text>
+            <Text style={styles.removeBtn}>✕</Text>
+          </View>
+          <View style={styles.recentItem}>
+            <Text style={styles.recentText}>회의록</Text>
+            <Text style={styles.removeBtn}>✕</Text>
+          </View>
+          <View style={styles.recentItem}>
+            <Text style={styles.recentText}>마케팅</Text>
+            <Text style={styles.removeBtn}>✕</Text>
+          </View>
+        </View>
+      )}
+
+      {searchText && (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>검색 결과가 없습니다</Text>
+        </View>
+      )}
     </View>
   );
 }
 
-// Styles for SearchScreen component
 const styles = StyleSheet.create({
-  // Main container - takes full screen with centered content
   container: {
-    flex: 1,                    // Takes all available space
-    backgroundColor: '#fff',     // White background
-    alignItems: 'center',        // Center horizontally
-    justifyContent: 'center',    // Center vertically
+    flex: 1,
+    backgroundColor: '#F5F5F0',
   },
-  // Title text style
-  title: {
-    fontSize: 24,               // Large font size
-    fontWeight: 'bold',         // Bold text
-    marginBottom: 10,           // Space below title
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    margin: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
-  // Subtitle text style
-  subtitle: {
-    fontSize: 16,               // Medium font size
-    color: '#666',              // Gray color
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 12,
+  },
+  recentContainer: {
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 12,
+  },
+  recentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  recentText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  removeBtn: {
+    fontSize: 14,
+    color: '#999',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
   },
 });

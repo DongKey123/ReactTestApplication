@@ -1,83 +1,169 @@
-// Import StatusBar component from expo-status-bar (controls status bar styling)
 import { StatusBar } from 'expo-status-bar';
-
-// Import React Navigation components
-// - NavigationContainer: Wrapper component that manages navigation state
-// - createBottomTabNavigator: Function to create bottom tab navigation
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-// Import screen components
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
+import CreateScreen from './screens/CreateScreen';
+import MemoScreen from './screens/MemoScreen';
 import ProfileScreen from './screens/ProfileScreen';
-import SettingsScreen from './screens/SettingsScreen';
 
-// Create bottom tab navigator
-// Tab: Object containing Screen component and Navigator component
 const Tab = createBottomTabNavigator();
 
-// Main App component - entry point of the app
-// export default: Exports this component so it can be imported in other files
+// 커스텀 탭바 버튼 (중앙 + 버튼)
+function CreateTabButton({ onPress }) {
+  return (
+    <TouchableOpacity style={styles.createButton} onPress={onPress}>
+      <View style={styles.createButtonInner}>
+        <Text style={styles.createButtonText}>+</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// 탭 아이콘 컴포넌트
+function TabIcon({ icon, focused }) {
+  return (
+    <Text style={[styles.tabIcon, focused && styles.tabIconActive]}>
+      {icon}
+    </Text>
+  );
+}
+
 export default function App() {
   return (
-    // NavigationContainer: Root component for navigation
-    // Must wrap all navigators
     <NavigationContainer>
-      {/* Tab.Navigator: Creates bottom tab navigation bar */}
       <Tab.Navigator
         screenOptions={{
-          // Tab bar styling options
-          tabBarActiveTintColor: 'blue',      // Color of active tab icon/label
-          tabBarInactiveTintColor: 'gray',    // Color of inactive tab icon/label
+          tabBarActiveTintColor: '#1B5E3C',
+          tabBarInactiveTintColor: '#999999',
+          tabBarStyle: styles.tabBar,
+          tabBarLabelStyle: styles.tabBarLabel,
           headerStyle: {
-            backgroundColor: '#f4511e',       // Header background color
+            backgroundColor: '#FFFFFF',
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E0E0E0',
           },
-          headerTintColor: '#fff',            // Header text color
+          headerTintColor: '#333',
           headerTitleStyle: {
-            fontWeight: 'bold',               // Header text style
+            fontWeight: '600',
           },
         }}
       >
-        {/* Tab.Screen: Individual tab screen */}
-        {/* name: Tab identifier, component: Screen component to display */}
         <Tab.Screen
           name="Home"
           component={HomeScreen}
           options={{
-            // Tab configuration options
-            tabBarLabel: 'Home',              // Label shown in tab bar
-            headerTitle: 'Home',              // Title shown in header
+            tabBarLabel: '목록',
+            headerTitle: 'Jot',
+            tabBarIcon: ({ focused }) => <TabIcon icon="≡" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="Search"
           component={SearchScreen}
           options={{
-            tabBarLabel: 'Search',
-            headerTitle: 'Search',
+            tabBarLabel: '검색',
+            headerTitle: '검색',
+            tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} />,
+          }}
+        />
+        <Tab.Screen
+          name="Create"
+          component={CreateScreen}
+          options={{
+            tabBarLabel: '',
+            headerTitle: '새 메모',
+            tabBarButton: (props) => <CreateTabButton {...props} />,
+            headerLeft: () => (
+              <Text style={styles.headerButton}>취소</Text>
+            ),
+            headerRight: () => (
+              <Text style={styles.headerButtonPrimary}>저장</Text>
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Memo"
+          component={MemoScreen}
+          options={{
+            tabBarLabel: '메모',
+            headerTitle: '메모',
+            tabBarIcon: ({ focused }) => <TabIcon icon="▢" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="Profile"
           component={ProfileScreen}
           options={{
-            tabBarLabel: 'Profile',
-            headerTitle: 'Profile',
-          }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            tabBarLabel: 'Settings',
-            headerTitle: 'Settings',
+            tabBarLabel: '프로필',
+            headerTitle: '프로필',
+            tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} />,
           }}
         />
       </Tab.Navigator>
 
-      {/* StatusBar: Controls status bar style (area showing time, battery, etc.) */}
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    height: 60,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    paddingBottom: 8,
+    paddingTop: 8,
+  },
+  tabBarLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  tabIcon: {
+    fontSize: 20,
+    color: '#999999',
+  },
+  tabIconActive: {
+    color: '#1B5E3C',
+  },
+  createButton: {
+    top: -20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1B5E3C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#1B5E3C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  createButtonText: {
+    fontSize: 32,
+    color: '#FFFFFF',
+    fontWeight: '300',
+    marginTop: -2,
+  },
+  headerButton: {
+    fontSize: 16,
+    color: '#666',
+    paddingHorizontal: 16,
+  },
+  headerButtonPrimary: {
+    fontSize: 16,
+    color: '#1B5E3C',
+    fontWeight: '600',
+    paddingHorizontal: 16,
+  },
+});
