@@ -10,6 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 // Import screen components
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 
 // Create bottom tab navigator
@@ -55,6 +56,14 @@ export default function App() {
           options={{
             tabBarLabel: 'Search',
             headerTitle: 'Search',
+          }}
+        />
+        <Tab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{
+            tabBarLabel: 'Profile',
+            headerTitle: 'Profile',
           }}
         />
         <Tab.Screen
