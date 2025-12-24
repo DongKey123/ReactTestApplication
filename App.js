@@ -2,14 +2,18 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { MemoProvider } from './context/MemoContext';
 
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
 import CreateScreen from './screens/CreateScreen';
 import MemoScreen from './screens/MemoScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import MemoDetailScreen from './screens/MemoDetailScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
 // 커스텀 탭바 버튼 (중앙 + 버튼)
 function CreateTabButton({ onPress }) {
@@ -31,10 +35,10 @@ function TabIcon({ icon, focused }) {
   );
 }
 
-export default function App() {
+// 탭 네비게이터
+function TabNavigator() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
+    <Tab.Navigator
         screenOptions={{
           tabBarActiveTintColor: '#1B5E3C',
           tabBarInactiveTintColor: '#999999',
@@ -105,9 +109,37 @@ export default function App() {
           }}
         />
       </Tab.Navigator>
+  );
+}
 
-      <StatusBar style="dark" />
-    </NavigationContainer>
+export default function App() {
+  return (
+    <MemoProvider>
+      <NavigationContainer>
+        <Stack.Navigator>
+          <Stack.Screen
+            name="Main"
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MemoDetail"
+            component={MemoDetailScreen}
+            options={{
+              headerTitle: '메모 상세',
+              headerStyle: {
+                backgroundColor: '#FFFFFF',
+              },
+              headerTintColor: '#333',
+              headerTitleStyle: {
+                fontWeight: '600',
+              },
+            }}
+          />
+        </Stack.Navigator>
+        <StatusBar style="dark" />
+      </NavigationContainer>
+    </MemoProvider>
   );
 }
 

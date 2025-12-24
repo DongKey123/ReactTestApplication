@@ -1,11 +1,11 @@
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 
 function MenuItem({ icon, label }) {
   return (
     <TouchableOpacity style={styles.menuItem}>
       <Text style={styles.menuIcon}>{icon}</Text>
       <Text style={styles.menuLabel}>{label}</Text>
-      <Text style={styles.menuArrow}>{'>'}</Text>
+      <Text style={styles.menuArrow}>{">"}</Text>
     </TouchableOpacity>
   );
 }
@@ -45,19 +45,19 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F0',
+    backgroundColor: "#F5F5F0",
   },
   profileSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 32,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#E0E0E0",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
   },
   avatarText: {
@@ -65,25 +65,25 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   divider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
     marginHorizontal: 16,
   },
   menuSection: {
     paddingVertical: 8,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
@@ -94,15 +94,15 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   menuArrow: {
     fontSize: 16,
-    color: '#999',
+    color: "#999",
   },
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
@@ -112,6 +112,6 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
-    color: '#F44336',
+    color: "#F44336",
   },
 });
