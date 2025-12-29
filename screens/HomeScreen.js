@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -5,42 +6,58 @@ import {
   FlatList,
   TouchableOpacity,
 } from "react-native";
+import { Calendar, LocaleConfig } from "react-native-calendars";
+import { useMemos } from "../context/MemoContext";
+import {
+  isHoliday,
+  getHolidayName,
+  getCurrentYearHolidayMarkers,
+} from "../data/holidays";
 
-const SAMPLE_MEMOS = [
-  {
-    id: "1",
-    title: "신규 프로젝트 기획",
-    content: "신규 프로젝트 기획을 확정 넘어 사는에 작성한 기록을 저장합니다.",
-    checklist: [
-      { id: "c1", text: "초기 컨셉 구상", checked: true },
-      { id: "c2", text: "팀원 구성 및 역할 배분", checked: false },
-    ],
-    updatedAt: "12:30",
-  },
-  {
-    id: "2",
-    title: "회의록 정리",
-    content: "Q3 마케팅 캠페인 논의 내용 정리",
-    checklist: [],
-    updatedAt: "어제",
-  },
-  {
-    id: "3",
-    title: "아이디어 메모",
-    content: "새로운 기능 아이디어 브레인스토밍",
-    checklist: [],
-    updatedAt: "12월 20일",
-  },
-];
+// 한국어 설정
+LocaleConfig.locales["ko"] = {
+  monthNames: [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월",
+  ],
+  monthNamesShort: [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월",
+  ],
+  dayNames: ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"],
+  dayNamesShort: ["일", "월", "화", "수", "목", "금", "토"],
+  today: "오늘",
+};
+LocaleConfig.defaultLocale = "ko";
 
-function MemoCard({ item }) {
+function MemoCard({ item, onPress }) {
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString("ko-KR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else if (diffDays === 1) {
+      return "어제";
+    } else {
+      return date.toLocaleDateString("ko-KR", {
+        month: "long",
+        day: "numeric",
+      });
+    }
+  };
+
   return (
-    <TouchableOpacity style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress}>
       <Text style={styles.cardTitle}>{item.title}</Text>
       <Text style={styles.cardContent} numberOfLines={2}>
         {item.content}
       </Text>
-      {item.checklist.length > 0 && (
+      {item.checklist && item.checklist.length > 0 && (
         <View style={styles.checklistContainer}>
           {item.checklist.slice(0, 2).map((check) => (
             <View key={check.id} style={styles.checkItem}>
@@ -54,18 +71,163 @@ function MemoCard({ item }) {
           ))}
         </View>
       )}
-      <Text style={styles.timestamp}>{item.updatedAt}</Text>
+      <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
     </TouchableOpacity>
   );
 }
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
+  const { memos } = useMemos();
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const handleMemoPress = (memo) => {
+    navigation.navigate("MemoDetail", { memo });
+  };
+
+  // 선택된 날짜의 메모 필터링
+  const filteredMemos = memos.filter((memo) => {
+    const memoDate = new Date(memo.createdAt).toISOString().split("T")[0];
+    return memoDate === selectedDate;
+  });
+
+  // 달력에 표시할 마커 생성 (공휴일 + 선택된 날짜)
+  const getMarkedDates = () => {
+    const marked = { ...getCurrentYearHolidayMarkers() };
+
+    // 메모가 있는 날짜 표시
+    memos.forEach((memo) => {
+      const memoDate = new Date(memo.createdAt).toISOString().split("T")[0];
+      if (marked[memoDate]) {
+        marked[memoDate] = {
+          ...marked[memoDate],
+          dots: [
+            { color: "#F44336" }, // 공휴일
+            { color: "#1B5E3C" }, // 메모
+          ],
+        };
+      } else {
+        marked[memoDate] = {
+          marked: true,
+          dotColor: "#1B5E3C",
+        };
+      }
+    });
+
+    // 선택된 날짜 표시
+    if (marked[selectedDate]) {
+      marked[selectedDate] = {
+        ...marked[selectedDate],
+        selected: true,
+        selectedColor: "#1B5E3C",
+      };
+    } else {
+      marked[selectedDate] = {
+        selected: true,
+        selectedColor: "#1B5E3C",
+      };
+    }
+
+    return marked;
+  };
+
+  const holidayName = getHolidayName(selectedDate);
+
+  const renderHeader = () => (
+    <View>
+      <Calendar
+        style={styles.calendar}
+        onDayPress={(day) => setSelectedDate(day.dateString)}
+        markedDates={getMarkedDates()}
+        theme={{
+          backgroundColor: "#FFFFFF",
+          calendarBackground: "#FFFFFF",
+          textSectionTitleColor: "#666",
+          selectedDayBackgroundColor: "#1B5E3C",
+          selectedDayTextColor: "#FFFFFF",
+          todayTextColor: "#1B5E3C",
+          dayTextColor: "#333",
+          textDisabledColor: "#d9e1e8",
+          arrowColor: "#1B5E3C",
+          monthTextColor: "#333",
+          textMonthFontWeight: "600",
+          textDayFontSize: 14,
+          textMonthFontSize: 16,
+          textDayHeaderFontSize: 12,
+        }}
+        dayComponent={({ date, state, marking }) => {
+          const holiday = isHoliday(date.dateString);
+          const isSelected = marking?.selected;
+          const isSunday = new Date(date.dateString).getDay() === 0;
+          const isSaturday = new Date(date.dateString).getDay() === 6;
+
+          return (
+            <TouchableOpacity
+              style={[
+                styles.dayContainer,
+                isSelected && styles.selectedDay,
+              ]}
+              onPress={() => setSelectedDate(date.dateString)}
+            >
+              <Text
+                style={[
+                  styles.dayText,
+                  state === "disabled" && styles.disabledDayText,
+                  (holiday || isSunday) && styles.holidayText,
+                  isSaturday && styles.saturdayText,
+                  isSelected && styles.selectedDayText,
+                ]}
+              >
+                {date.day}
+              </Text>
+              {marking?.marked && (
+                <View
+                  style={[
+                    styles.dot,
+                    { backgroundColor: marking.dotColor || "#1B5E3C" },
+                  ]}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        }}
+      />
+      <View style={styles.dateHeader}>
+        <Text style={styles.selectedDateText}>
+          {new Date(selectedDate).toLocaleDateString("ko-KR", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          })}
+        </Text>
+        {holidayName && (
+          <Text style={styles.holidayBadge}>{holidayName}</Text>
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={SAMPLE_MEMOS}
+        data={filteredMemos}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <MemoCard item={item} />}
+        renderItem={({ item }) => (
+          <MemoCard item={item} onPress={() => handleMemoPress(item)} />
+        )}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {holidayName
+                ? `${holidayName}입니다`
+                : "이 날짜에 메모가 없습니다"}
+            </Text>
+            <Text style={styles.emptySubText}>새 메모를 작성해보세요</Text>
+          </View>
+        }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
@@ -78,14 +240,93 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F5F0",
   },
+  calendar: {
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  dayContainer: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+  },
+  selectedDay: {
+    backgroundColor: "#1B5E3C",
+  },
+  dayText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  disabledDayText: {
+    color: "#d9e1e8",
+  },
+  holidayText: {
+    color: "#F44336",
+  },
+  saturdayText: {
+    color: "#2563EB",
+  },
+  selectedDayText: {
+    color: "#FFFFFF",
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 2,
+  },
+  dateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  selectedDateText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  holidayBadge: {
+    marginLeft: 8,
+    backgroundColor: "#F44336",
+    color: "#FFFFFF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: "500",
+    overflow: "hidden",
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: "#999",
+  },
   listContent: {
-    padding: 16,
-    gap: 12,
+    paddingBottom: 16,
   },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

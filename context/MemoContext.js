@@ -10,13 +10,13 @@ export function MemoProvider({ children }) {
     { id: "personal", name: "개인", color: "#DC2626" },
   ]);
 
-  const addMemo = (title, content, folderId = "default") => {
+  const addMemo = (title, content, folderId = "default", memoDate = null) => {
     const newMemo = {
       id: Date.now().toString(),
       title,
       content,
       folderId,
-      createdAt: new Date().toISOString(),
+      createdAt: memoDate || new Date().toISOString(),
     };
     setMemos([newMemo, ...memos]);
   };

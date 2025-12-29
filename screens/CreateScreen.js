@@ -5,15 +5,38 @@ import {
   Alert,
   Text,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { useState, useLayoutEffect } from "react";
+import { Calendar, LocaleConfig } from "react-native-calendars";
 import { useMemos } from "../context/MemoContext";
+import { isHoliday, getHolidayName } from "../data/holidays";
+
+// 한국어 설정
+LocaleConfig.locales["ko"] = {
+  monthNames: [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월",
+  ],
+  monthNamesShort: [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월",
+  ],
+  dayNames: ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"],
+  dayNamesShort: ["일", "월", "화", "수", "목", "금", "토"],
+  today: "오늘",
+};
+LocaleConfig.defaultLocale = "ko";
 
 export default function CreateScreen({ navigation }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [selectedFolder, setSelectedFolder] = useState("default");
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedColor, setSelectedColor] = useState("#1B5E3C");
@@ -30,10 +53,16 @@ export default function CreateScreen({ navigation }) {
       return;
     }
 
-    addMemo(title.trim(), content.trim(), selectedFolder);
+    // 선택한 날짜로 메모 저장 (시간은 현재 시간 사용)
+    const now = new Date();
+    const memoDateTime = new Date(selectedDate);
+    memoDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
+    addMemo(title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString());
     setTitle("");
     setContent("");
     setSelectedFolder("default");
+    setSelectedDate(new Date().toISOString().split("T")[0]);
     Alert.alert("저장 완료", "메모가 저장되었습니다.", [
       {
         text: "확인",
@@ -100,9 +129,21 @@ export default function CreateScreen({ navigation }) {
 
   const selectedFolderData = folders.find((f) => f.id === selectedFolder);
 
+  const formatSelectedDate = () => {
+    const date = new Date(selectedDate);
+    const holidayName = getHolidayName(selectedDate);
+    const dateStr = date.toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "short",
+    });
+    return holidayName ? `${dateStr} (${holidayName})` : dateStr;
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView style={styles.content}>
         <TouchableOpacity
           style={styles.folderSelector}
           onPress={() => setShowFolderPicker(true)}
@@ -116,6 +157,15 @@ export default function CreateScreen({ navigation }) {
           <Text style={styles.folderText}>
             {selectedFolderData?.name || "전체"}
           </Text>
+          <Text style={styles.folderArrow}>▼</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.dateSelector}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={styles.dateLabelText}>날짜</Text>
+          <Text style={styles.dateText}>{formatSelectedDate()}</Text>
           <Text style={styles.folderArrow}>▼</Text>
         </TouchableOpacity>
 
@@ -143,7 +193,89 @@ export default function CreateScreen({ navigation }) {
           autoCapitalize="none"
           keyboardType="default"
         />
-      </View>
+      </ScrollView>
+
+      {showDatePicker && (
+        <View style={styles.folderPickerOverlay}>
+          <TouchableOpacity
+            style={styles.folderPickerBackdrop}
+            onPress={() => setShowDatePicker(false)}
+          />
+          <View style={styles.datePickerContainer}>
+            <Text style={styles.folderPickerTitle}>날짜 선택</Text>
+            <Calendar
+              style={styles.calendarStyle}
+              onDayPress={(day) => {
+                setSelectedDate(day.dateString);
+                setShowDatePicker(false);
+              }}
+              markedDates={{
+                [selectedDate]: {
+                  selected: true,
+                  selectedColor: "#1B5E3C",
+                },
+              }}
+              theme={{
+                backgroundColor: "#FFFFFF",
+                calendarBackground: "#FFFFFF",
+                selectedDayBackgroundColor: "#1B5E3C",
+                selectedDayTextColor: "#FFFFFF",
+                todayTextColor: "#1B5E3C",
+                dayTextColor: "#333",
+                arrowColor: "#1B5E3C",
+                monthTextColor: "#333",
+                textMonthFontWeight: "600",
+              }}
+              dayComponent={({ date, state, marking }) => {
+                const holiday = isHoliday(date.dateString);
+                const isSelected = marking?.selected;
+                const isSunday = new Date(date.dateString).getDay() === 0;
+                const isSaturday = new Date(date.dateString).getDay() === 6;
+
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.dayContainer,
+                      isSelected && styles.selectedDay,
+                    ]}
+                    onPress={() => {
+                      setSelectedDate(date.dateString);
+                      setShowDatePicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        state === "disabled" && styles.disabledDayText,
+                        (holiday || isSunday) && styles.holidayText,
+                        isSaturday && styles.saturdayText,
+                        isSelected && styles.selectedDayText,
+                      ]}
+                    >
+                      {date.day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+            <TouchableOpacity
+              style={styles.todayButton}
+              onPress={() => {
+                setSelectedDate(new Date().toISOString().split("T")[0]);
+                setShowDatePicker(false);
+              }}
+            >
+              <Text style={styles.todayButtonText}>오늘</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.folderPickerCancel}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <Text style={styles.folderPickerCancelText}>닫기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {showFolderPicker && (
         <View style={styles.folderPickerOverlay}>
@@ -277,7 +409,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   contentInput: {
-    flex: 1,
+    minHeight: 200,
     fontSize: 16,
     color: "#333",
     lineHeight: 24,
@@ -321,6 +453,76 @@ const styles = StyleSheet.create({
   folderArrow: {
     fontSize: 10,
     color: "#999",
+  },
+  dateSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  dateLabelText: {
+    fontSize: 14,
+    color: "#666",
+    marginRight: 12,
+  },
+  dateText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+  },
+  datePickerContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 20,
+    width: "90%",
+    maxHeight: "80%",
+  },
+  calendarStyle: {
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  dayContainer: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+  },
+  selectedDay: {
+    backgroundColor: "#1B5E3C",
+  },
+  dayText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  disabledDayText: {
+    color: "#d9e1e8",
+  },
+  holidayText: {
+    color: "#F44336",
+  },
+  saturdayText: {
+    color: "#2563EB",
+  },
+  selectedDayText: {
+    color: "#FFFFFF",
+  },
+  todayButton: {
+    backgroundColor: "#1B5E3C",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  todayButtonText: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   folderPickerOverlay: {
     position: "absolute",
