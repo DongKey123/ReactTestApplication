@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from "react-native";
-import { useState, useLayoutEffect } from "react";
+import { useState, useLayoutEffect, useEffect, useRef, useCallback } from "react";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { useMemos } from "../context/MemoContext";
 import { isHoliday, getHolidayName } from "../data/holidays";
@@ -28,24 +28,94 @@ LocaleConfig.locales["ko"] = {
 };
 LocaleConfig.defaultLocale = "ko";
 
-export default function CreateScreen({ navigation }) {
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [selectedFolder, setSelectedFolder] = useState("default");
+export default function CreateScreen({ navigation, route }) {
+  const editMemo = route.params?.editMemo;
+  const isEditMode = !!editMemo;
+
+  const [title, setTitle] = useState(editMemo?.title || "");
+  const [content, setContent] = useState(editMemo?.content || "");
+  const [selectedFolder, setSelectedFolder] = useState(editMemo?.folderId || "default");
   const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
+    editMemo ? new Date(editMemo.createdAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]
   );
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedColor, setSelectedColor] = useState("#1B5E3C");
-  const { addMemo, folders, addFolder } = useMemos();
+  const [checklist, setChecklist] = useState(editMemo?.checklist || []);
+  const [newCheckItem, setNewCheckItem] = useState("");
+  const [saveStatus, setSaveStatus] = useState(""); // "", "saving", "saved"
+  const { addMemo, updateMemo, folders, addFolder } = useMemos();
+
+  const autoSaveTimerRef = useRef(null);
+  const lastSavedRef = useRef({ title: editMemo?.title || "", content: editMemo?.content || "" });
 
   const colors = [
     "#1B5E3C", "#2563EB", "#DC2626", "#F59E0B",
     "#8B5CF6", "#EC4899", "#10B981", "#F97316"
   ];
+
+  // 자동 저장 함수
+  const performAutoSave = useCallback(() => {
+    if (!isEditMode) return;
+    if (!title.trim()) return;
+    if (title === lastSavedRef.current.title && content === lastSavedRef.current.content) return;
+
+    setSaveStatus("saving");
+    const memoDateTime = new Date(selectedDate);
+    const now = new Date();
+    memoDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
+    updateMemo(editMemo.id, title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist);
+    lastSavedRef.current = { title, content };
+
+    setTimeout(() => setSaveStatus("saved"), 300);
+    setTimeout(() => setSaveStatus(""), 2000);
+  }, [isEditMode, title, content, selectedFolder, selectedDate, checklist, editMemo?.id, updateMemo]);
+
+  // 자동 저장 (수정 모드에서만, 2초 debounce)
+  useEffect(() => {
+    if (!isEditMode) return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [title, content, performAutoSave, isEditMode]);
+
+  // 체크리스트 함수들
+  const addCheckItem = () => {
+    if (!newCheckItem.trim()) return;
+    const newItem = {
+      id: Date.now().toString(),
+      text: newCheckItem.trim(),
+      checked: false,
+    };
+    setChecklist([...checklist, newItem]);
+    setNewCheckItem("");
+  };
+
+  const toggleCheckItem = (id) => {
+    setChecklist(
+      checklist.map((item) =>
+        item.id === id ? { ...item, checked: !item.checked } : item
+      )
+    );
+  };
+
+  const deleteCheckItem = (id) => {
+    setChecklist(checklist.filter((item) => item.id !== id));
+  };
 
   const handleSave = () => {
     if (!title.trim()) {
@@ -58,26 +128,39 @@ export default function CreateScreen({ navigation }) {
     const memoDateTime = new Date(selectedDate);
     memoDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
 
-    addMemo(title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString());
-    setTitle("");
-    setContent("");
-    setSelectedFolder("default");
-    setSelectedDate(new Date().toISOString().split("T")[0]);
-    Alert.alert("저장 완료", "메모가 저장되었습니다.", [
-      {
-        text: "확인",
-        onPress: () => navigation.navigate("Memo"),
-      },
-    ]);
+    if (isEditMode) {
+      updateMemo(editMemo.id, title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist);
+      Alert.alert("수정 완료", "메모가 수정되었습니다.", [
+        {
+          text: "확인",
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } else {
+      addMemo(title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist);
+      setTitle("");
+      setContent("");
+      setSelectedFolder("default");
+      setSelectedDate(new Date().toISOString().split("T")[0]);
+      setChecklist([]);
+      Alert.alert("저장 완료", "메모가 저장되었습니다.", [
+        {
+          text: "확인",
+          onPress: () => navigation.navigate("Memo"),
+        },
+      ]);
+    }
   };
 
   const handleCancel = () => {
-    const hasChanges = title.trim() !== "" || content.trim() !== "";
+    const originalTitle = editMemo?.title || "";
+    const originalContent = editMemo?.content || "";
+    const hasChanges = title.trim() !== originalTitle || content.trim() !== originalContent;
 
     if (hasChanges) {
       Alert.alert(
         "변경사항 취소",
-        "작성 중인 내용이 있습니다. 취소하시겠습니까?",
+        isEditMode ? "수정한 내용을 취소하시겠습니까?" : "작성 중인 내용이 있습니다. 취소하시겠습니까?",
         [
           {
             text: "계속 작성",
@@ -87,15 +170,24 @@ export default function CreateScreen({ navigation }) {
             text: "취소",
             style: "destructive",
             onPress: () => {
-              setTitle("");
-              setContent("");
-              navigation.navigate("Home");
+              if (isEditMode) {
+                navigation.goBack();
+              } else {
+                setTitle("");
+                setContent("");
+                setChecklist([]);
+                navigation.navigate("Home");
+              }
             },
           },
         ]
       );
     } else {
-      navigation.navigate("Home");
+      if (isEditMode) {
+        navigation.goBack();
+      } else {
+        navigation.navigate("Home");
+      }
     }
   };
 
@@ -114,18 +206,26 @@ export default function CreateScreen({ navigation }) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerTitle: isEditMode ? "메모 수정" : "새 메모",
       headerLeft: () => (
         <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-          <Text style={styles.cancelText}>취소</Text>
+          <Text style={styles.cancelText}>{isEditMode ? "닫기" : "취소"}</Text>
         </TouchableOpacity>
       ),
       headerRight: () => (
-        <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
-          <Text style={styles.saveText}>저장</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightContainer}>
+          {saveStatus !== "" && (
+            <Text style={styles.saveStatusText}>
+              {saveStatus === "saving" ? "저장 중..." : "저장됨"}
+            </Text>
+          )}
+          <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
+            <Text style={styles.saveText}>{isEditMode ? "완료" : "저장"}</Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation, title, content]);
+  }, [navigation, title, content, isEditMode, saveStatus]);
 
   const selectedFolderData = folders.find((f) => f.id === selectedFolder);
 
@@ -193,6 +293,58 @@ export default function CreateScreen({ navigation }) {
           autoCapitalize="none"
           keyboardType="default"
         />
+
+        {/* 체크리스트 섹션 */}
+        <View style={styles.checklistSection}>
+          <Text style={styles.checklistTitle}>체크리스트</Text>
+
+          {checklist.map((item) => (
+            <View key={item.id} style={styles.checklistItem}>
+              <TouchableOpacity
+                style={styles.checkboxContainer}
+                onPress={() => toggleCheckItem(item.id)}
+              >
+                <Text style={styles.checkboxIcon}>
+                  {item.checked ? "☑" : "☐"}
+                </Text>
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.checklistItemText,
+                  item.checked && styles.checklistItemChecked,
+                ]}
+              >
+                {item.text}
+              </Text>
+              <TouchableOpacity
+                style={styles.deleteCheckButton}
+                onPress={() => deleteCheckItem(item.id)}
+              >
+                <Text style={styles.deleteCheckIcon}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          <View style={styles.addChecklistContainer}>
+            <TextInput
+              style={styles.addChecklistInput}
+              placeholder="할 일 추가..."
+              placeholderTextColor="#999"
+              value={newCheckItem}
+              onChangeText={setNewCheckItem}
+              onSubmitEditing={addCheckItem}
+              returnKeyType="done"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.addChecklistButton}
+              onPress={addCheckItem}
+            >
+              <Text style={styles.addChecklistButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
 
       {showDatePicker && (
@@ -652,6 +804,89 @@ const styles = StyleSheet.create({
   },
   createFolderButtonText: {
     fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  headerRightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  saveStatusText: {
+    fontSize: 12,
+    color: "#999",
+    marginRight: 8,
+  },
+  checklistSection: {
+    marginTop: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  checklistTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+  },
+  checklistItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  checkboxContainer: {
+    padding: 4,
+  },
+  checkboxIcon: {
+    fontSize: 20,
+    color: "#1B5E3C",
+  },
+  checklistItemText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#333",
+    marginLeft: 8,
+  },
+  checklistItemChecked: {
+    textDecorationLine: "line-through",
+    color: "#999",
+  },
+  deleteCheckButton: {
+    padding: 8,
+  },
+  deleteCheckIcon: {
+    fontSize: 20,
+    color: "#999",
+    fontWeight: "600",
+  },
+  addChecklistContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addChecklistInput: {
+    flex: 1,
+    backgroundColor: "#F5F5F0",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: "#333",
+  },
+  addChecklistButton: {
+    backgroundColor: "#1B5E3C",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  addChecklistButtonText: {
+    fontSize: 20,
     color: "#FFFFFF",
     fontWeight: "600",
   },

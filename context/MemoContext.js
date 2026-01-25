@@ -10,19 +10,38 @@ export function MemoProvider({ children }) {
     { id: "personal", name: "개인", color: "#DC2626" },
   ]);
 
-  const addMemo = (title, content, folderId = "default", memoDate = null) => {
+  const addMemo = (title, content, folderId = "default", memoDate = null, checklist = []) => {
     const newMemo = {
       id: Date.now().toString(),
       title,
       content,
       folderId,
       createdAt: memoDate || new Date().toISOString(),
+      checklist,
     };
     setMemos([newMemo, ...memos]);
   };
 
   const deleteMemo = (id) => {
     setMemos(memos.filter((memo) => memo.id !== id));
+  };
+
+  const updateMemo = (id, title, content, folderId, memoDate, checklist = null) => {
+    setMemos(
+      memos.map((memo) =>
+        memo.id === id
+          ? {
+              ...memo,
+              title,
+              content,
+              folderId,
+              createdAt: memoDate || memo.createdAt,
+              updatedAt: new Date().toISOString(),
+              checklist: checklist !== null ? checklist : memo.checklist,
+            }
+          : memo
+      )
+    );
   };
 
   const addFolder = (name, color) => {
@@ -79,6 +98,7 @@ export function MemoProvider({ children }) {
         folders,
         addMemo,
         deleteMemo,
+        updateMemo,
         addFolder,
         updateFolder,
         deleteFolder,

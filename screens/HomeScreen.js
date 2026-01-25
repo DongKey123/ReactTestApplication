@@ -14,23 +14,8 @@ import {
   getCurrentYearHolidayMarkers,
 } from "../data/holidays";
 
-// 한국어 설정
-LocaleConfig.locales["ko"] = {
-  monthNames: [
-    "1월", "2월", "3월", "4월", "5월", "6월",
-    "7월", "8월", "9월", "10월", "11월", "12월",
-  ],
-  monthNamesShort: [
-    "1월", "2월", "3월", "4월", "5월", "6월",
-    "7월", "8월", "9월", "10월", "11월", "12월",
-  ],
-  dayNames: ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"],
-  dayNamesShort: ["일", "월", "화", "수", "목", "금", "토"],
-  today: "오늘",
-};
-LocaleConfig.defaultLocale = "ko";
-
-function MemoCard({ item, onPress }) {
+// 체크리스트 토글 함수를 받는 MemoCard
+function MemoCard({ item, onPress, onToggleCheck }) {
   const formatTime = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -59,16 +44,29 @@ function MemoCard({ item, onPress }) {
       </Text>
       {item.checklist && item.checklist.length > 0 && (
         <View style={styles.checklistContainer}>
-          {item.checklist.slice(0, 2).map((check) => (
-            <View key={check.id} style={styles.checkItem}>
+          {item.checklist.slice(0, 3).map((check) => (
+            <TouchableOpacity
+              key={check.id}
+              style={styles.checkItem}
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleCheck(item.id, check.id);
+              }}
+            >
               <Text style={styles.checkbox}>{check.checked ? "☑" : "☐"}</Text>
               <Text
                 style={[styles.checkText, check.checked && styles.checkedText]}
+                numberOfLines={1}
               >
                 {check.text}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
+          {item.checklist.length > 3 && (
+            <Text style={styles.moreChecklist}>
+              +{item.checklist.length - 3}개 더보기
+            </Text>
+          )}
         </View>
       )}
       <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
@@ -76,14 +74,48 @@ function MemoCard({ item, onPress }) {
   );
 }
 
+// 한국어 설정
+LocaleConfig.locales["ko"] = {
+  monthNames: [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월",
+  ],
+  monthNamesShort: [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월",
+  ],
+  dayNames: ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"],
+  dayNamesShort: ["일", "월", "화", "수", "목", "금", "토"],
+  today: "오늘",
+};
+LocaleConfig.defaultLocale = "ko";
+
 export default function HomeScreen({ navigation }) {
-  const { memos } = useMemos();
+  const { memos, updateMemo } = useMemos();
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
 
   const handleMemoPress = (memo) => {
     navigation.navigate("MemoDetail", { memo });
+  };
+
+  const handleToggleCheck = (memoId, checkId) => {
+    const memo = memos.find((m) => m.id === memoId);
+    if (!memo || !memo.checklist) return;
+
+    const updatedChecklist = memo.checklist.map((item) =>
+      item.id === checkId ? { ...item, checked: !item.checked } : item
+    );
+
+    updateMemo(
+      memo.id,
+      memo.title,
+      memo.content,
+      memo.folderId,
+      memo.createdAt,
+      updatedChecklist
+    );
   };
 
   // 선택된 날짜의 메모 필터링
@@ -215,7 +247,11 @@ export default function HomeScreen({ navigation }) {
         data={filteredMemos}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <MemoCard item={item} onPress={() => handleMemoPress(item)} />
+          <MemoCard
+            item={item}
+            onPress={() => handleMemoPress(item)}
+            onToggleCheck={handleToggleCheck}
+          />
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
@@ -361,10 +397,16 @@ const styles = StyleSheet.create({
   checkText: {
     fontSize: 14,
     color: "#333",
+    flex: 1,
   },
   checkedText: {
     textDecorationLine: "line-through",
     color: "#999",
+  },
+  moreChecklist: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
   },
   timestamp: {
     fontSize: 12,
