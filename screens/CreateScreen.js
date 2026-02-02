@@ -6,11 +6,20 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { useState, useLayoutEffect, useEffect, useRef, useCallback } from "react";
+import FormattedText from "../components/FormattedText";
 import { Calendar, LocaleConfig } from "react-native-calendars";
+import * as ImagePicker from "expo-image-picker";
 import { useMemos } from "../context/MemoContext";
 import { isHoliday, getHolidayName } from "../data/holidays";
+import {
+  generateTitle,
+  summarizeContent,
+  expandContent,
+} from "../services/AIService";
 
 // 한국어 설정
 LocaleConfig.locales["ko"] = {
@@ -45,7 +54,16 @@ export default function CreateScreen({ navigation, route }) {
   const [selectedColor, setSelectedColor] = useState("#1B5E3C");
   const [checklist, setChecklist] = useState(editMemo?.checklist || []);
   const [newCheckItem, setNewCheckItem] = useState("");
+  const [links, setLinks] = useState(editMemo?.links || []);
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newLinkTitle, setNewLinkTitle] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [images, setImages] = useState(editMemo?.images || []);
   const [saveStatus, setSaveStatus] = useState(""); // "", "saving", "saved"
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [showAIMenu, setShowAIMenu] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const contentInputRef = useRef(null);
   const { addMemo, updateMemo, folders, addFolder } = useMemos();
 
   const autoSaveTimerRef = useRef(null);
@@ -67,12 +85,12 @@ export default function CreateScreen({ navigation, route }) {
     const now = new Date();
     memoDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
 
-    updateMemo(editMemo.id, title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist);
+    updateMemo(editMemo.id, title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist, links, images);
     lastSavedRef.current = { title, content };
 
     setTimeout(() => setSaveStatus("saved"), 300);
     setTimeout(() => setSaveStatus(""), 2000);
-  }, [isEditMode, title, content, selectedFolder, selectedDate, checklist, editMemo?.id, updateMemo]);
+  }, [isEditMode, title, content, selectedFolder, selectedDate, checklist, links, images, editMemo?.id, updateMemo]);
 
   // 자동 저장 (수정 모드에서만, 2초 debounce)
   useEffect(() => {
@@ -117,6 +135,227 @@ export default function CreateScreen({ navigation, route }) {
     setChecklist(checklist.filter((item) => item.id !== id));
   };
 
+  // 링크 관련 함수들
+  const addLink = () => {
+    if (!newLinkUrl.trim()) return;
+
+    // URL 형식 검증 및 자동 http:// 추가
+    let url = newLinkUrl.trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "https://" + url;
+    }
+
+    const newLink = {
+      id: Date.now().toString(),
+      url,
+      title: newLinkTitle.trim() || url,
+    };
+    setLinks([...links, newLink]);
+    setNewLinkUrl("");
+    setNewLinkTitle("");
+    setShowLinkInput(false);
+  };
+
+  const deleteLink = (id) => {
+    setLinks(links.filter((link) => link.id !== id));
+  };
+
+  // 이미지 관련 함수들
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("권한 필요", "이미지를 선택하려면 갤러리 접근 권한이 필요합니다.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newImages = result.assets.map((asset) => ({
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        uri: asset.uri,
+      }));
+      setImages([...images, ...newImages]);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("권한 필요", "사진을 촬영하려면 카메라 접근 권한이 필요합니다.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newImage = {
+        id: Date.now().toString(),
+        uri: result.assets[0].uri,
+      };
+      setImages([...images, newImage]);
+    }
+  };
+
+  const deleteImage = (id) => {
+    setImages(images.filter((image) => image.id !== id));
+  };
+
+  // 서식 적용 함수
+  const applyFormat = (formatType) => {
+    const { start, end } = selection;
+    const selectedText = content.substring(start, end);
+
+    let wrapper = "";
+    switch (formatType) {
+      case "bold":
+        wrapper = "**";
+        break;
+      case "italic":
+        wrapper = "*";
+        break;
+      case "strikethrough":
+        wrapper = "~~";
+        break;
+      case "code":
+        wrapper = "`";
+        break;
+      default:
+        return;
+    }
+
+    let newContent;
+    let newCursorPos;
+
+    if (start === end) {
+      // 선택된 텍스트가 없으면 커서 위치에 래퍼 삽입
+      newContent = content.substring(0, start) + wrapper + wrapper + content.substring(end);
+      newCursorPos = start + wrapper.length;
+    } else {
+      // 선택된 텍스트를 래퍼로 감싸기
+      newContent = content.substring(0, start) + wrapper + selectedText + wrapper + content.substring(end);
+      newCursorPos = end + wrapper.length * 2;
+    }
+
+    setContent(newContent);
+    // 커서 위치 업데이트
+    setTimeout(() => {
+      setSelection({ start: newCursorPos, end: newCursorPos });
+    }, 10);
+  };
+
+  // AI 제목 자동 생성
+  const handleAIGenerateTitle = async () => {
+    if (!content.trim()) {
+      Alert.alert("알림", "내용을 먼저 입력해주세요.");
+      return;
+    }
+
+    setAiLoading(true);
+    setShowAIMenu(false);
+
+    try {
+      const generatedTitle = await generateTitle(content);
+      if (generatedTitle) {
+        Alert.alert(
+          "AI 제목 추천",
+          `추천 제목: "${generatedTitle}"`,
+          [
+            { text: "취소", style: "cancel" },
+            {
+              text: "적용",
+              onPress: () => setTitle(generatedTitle),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("알림", "제목을 생성할 수 없습니다. 내용을 더 입력해주세요.");
+      }
+    } catch (error) {
+      Alert.alert("오류", "AI 제목 생성 중 오류가 발생했습니다.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // AI 내용 요약
+  const handleAISummarize = async () => {
+    if (!content.trim() || content.trim().length < 50) {
+      Alert.alert("알림", "요약하려면 내용이 더 필요합니다 (최소 50자).");
+      return;
+    }
+
+    setAiLoading(true);
+    setShowAIMenu(false);
+
+    try {
+      const summary = await summarizeContent(content);
+      if (summary) {
+        Alert.alert(
+          "AI 요약",
+          summary,
+          [
+            { text: "닫기", style: "cancel" },
+            {
+              text: "내용 대체",
+              onPress: () => setContent(summary),
+            },
+            {
+              text: "내용 추가",
+              onPress: () => setContent(content + "\n\n---\n요약:\n" + summary),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("알림", "요약을 생성할 수 없습니다.");
+      }
+    } catch (error) {
+      Alert.alert("오류", "AI 요약 중 오류가 발생했습니다.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // AI 내용 확장
+  const handleAIExpand = async () => {
+    if (!content.trim()) {
+      Alert.alert("알림", "내용을 먼저 입력해주세요.");
+      return;
+    }
+
+    setAiLoading(true);
+    setShowAIMenu(false);
+
+    try {
+      const expanded = await expandContent(content, "detailed");
+      if (expanded) {
+        Alert.alert(
+          "AI 확장",
+          "내용이 확장되었습니다.",
+          [
+            { text: "취소", style: "cancel" },
+            {
+              text: "적용",
+              onPress: () => setContent(expanded),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("알림", "내용을 확장할 수 없습니다.");
+      }
+    } catch (error) {
+      Alert.alert("오류", "AI 확장 중 오류가 발생했습니다.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
       Alert.alert("알림", "제목을 입력해주세요.");
@@ -129,7 +368,7 @@ export default function CreateScreen({ navigation, route }) {
     memoDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
 
     if (isEditMode) {
-      updateMemo(editMemo.id, title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist);
+      updateMemo(editMemo.id, title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist, links, images);
       Alert.alert("수정 완료", "메모가 수정되었습니다.", [
         {
           text: "확인",
@@ -137,12 +376,14 @@ export default function CreateScreen({ navigation, route }) {
         },
       ]);
     } else {
-      addMemo(title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist);
+      addMemo(title.trim(), content.trim(), selectedFolder, memoDateTime.toISOString(), checklist, links, images);
       setTitle("");
       setContent("");
       setSelectedFolder("default");
       setSelectedDate(new Date().toISOString().split("T")[0]);
       setChecklist([]);
+      setLinks([]);
+      setImages([]);
       Alert.alert("저장 완료", "메모가 저장되었습니다.", [
         {
           text: "확인",
@@ -176,6 +417,8 @@ export default function CreateScreen({ navigation, route }) {
                 setTitle("");
                 setContent("");
                 setChecklist([]);
+                setLinks([]);
+                setImages([]);
                 navigation.navigate("Home");
               }
             },
@@ -282,17 +525,60 @@ export default function CreateScreen({ navigation, route }) {
         />
         <View style={styles.divider} />
         <TextInput
+          ref={contentInputRef}
           style={styles.contentInput}
           placeholder="내용을 입력하세요..."
           placeholderTextColor="#999"
           value={content}
           onChangeText={setContent}
+          onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
+          selection={selection}
           multiline
           textAlignVertical="top"
           autoCorrect={false}
           autoCapitalize="none"
           keyboardType="default"
         />
+
+        {/* 서식 툴바 */}
+        <View style={styles.formatToolbar}>
+          <TouchableOpacity
+            style={styles.formatButton}
+            onPress={() => applyFormat("bold")}
+          >
+            <Text style={styles.formatButtonTextBold}>B</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.formatButton}
+            onPress={() => applyFormat("italic")}
+          >
+            <Text style={styles.formatButtonTextItalic}>I</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.formatButton}
+            onPress={() => applyFormat("strikethrough")}
+          >
+            <Text style={styles.formatButtonTextStrike}>S</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.formatButton}
+            onPress={() => applyFormat("code")}
+          >
+            <Text style={styles.formatButtonTextCode}>&lt;/&gt;</Text>
+          </TouchableOpacity>
+          <View style={styles.formatDivider} />
+          <TouchableOpacity
+            style={[styles.formatButton, styles.aiButton]}
+            onPress={() => setShowAIMenu(true)}
+            disabled={aiLoading}
+          >
+            {aiLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.aiButtonText}>AI</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* 체크리스트 섹션 */}
         <View style={styles.checklistSection}>
@@ -342,6 +628,108 @@ export default function CreateScreen({ navigation, route }) {
               onPress={addCheckItem}
             >
               <Text style={styles.addChecklistButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 링크 섹션 */}
+        <View style={styles.linkSection}>
+          <Text style={styles.linkSectionTitle}>링크</Text>
+
+          {links.map((link) => (
+            <View key={link.id} style={styles.linkItem}>
+              <Text style={styles.linkIcon}>🔗</Text>
+              <View style={styles.linkTextContainer}>
+                <Text style={styles.linkTitle} numberOfLines={1}>{link.title}</Text>
+                <Text style={styles.linkUrl} numberOfLines={1}>{link.url}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.deleteLinkButton}
+                onPress={() => deleteLink(link.id)}
+              >
+                <Text style={styles.deleteLinkIcon}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {!showLinkInput ? (
+            <TouchableOpacity
+              style={styles.addLinkButton}
+              onPress={() => setShowLinkInput(true)}
+            >
+              <Text style={styles.addLinkButtonText}>+ 링크 추가</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.linkInputContainer}>
+              <TextInput
+                style={styles.linkUrlInput}
+                placeholder="URL 입력 (예: google.com)"
+                placeholderTextColor="#999"
+                value={newLinkUrl}
+                onChangeText={setNewLinkUrl}
+                autoCorrect={false}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <TextInput
+                style={styles.linkTitleInput}
+                placeholder="제목 (선택사항)"
+                placeholderTextColor="#999"
+                value={newLinkTitle}
+                onChangeText={setNewLinkTitle}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              <View style={styles.linkInputButtons}>
+                <TouchableOpacity
+                  style={styles.linkCancelButton}
+                  onPress={() => {
+                    setShowLinkInput(false);
+                    setNewLinkUrl("");
+                    setNewLinkTitle("");
+                  }}
+                >
+                  <Text style={styles.linkCancelButtonText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.linkAddConfirmButton}
+                  onPress={addLink}
+                >
+                  <Text style={styles.linkAddConfirmButtonText}>추가</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* 이미지 섹션 */}
+        <View style={styles.imageSection}>
+          <Text style={styles.imageSectionTitle}>이미지</Text>
+
+          {images.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScrollView}>
+              {images.map((image) => (
+                <View key={image.id} style={styles.imageContainer}>
+                  <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                  <TouchableOpacity
+                    style={styles.deleteImageButton}
+                    onPress={() => deleteImage(image.id)}
+                  >
+                    <Text style={styles.deleteImageIcon}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <View style={styles.imageButtonsContainer}>
+            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+              <Text style={styles.imageButtonIcon}>🖼️</Text>
+              <Text style={styles.imageButtonText}>갤러리</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
+              <Text style={styles.imageButtonIcon}>📷</Text>
+              <Text style={styles.imageButtonText}>카메라</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -532,6 +920,59 @@ export default function CreateScreen({ navigation, route }) {
               }}
             >
               <Text style={styles.folderPickerCancelText}>취소</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {showAIMenu && (
+        <View style={styles.folderPickerOverlay}>
+          <TouchableOpacity
+            style={styles.folderPickerBackdrop}
+            onPress={() => setShowAIMenu(false)}
+          />
+          <View style={styles.aiMenuContainer}>
+            <Text style={styles.aiMenuTitle}>AI 도우미</Text>
+            <Text style={styles.aiMenuSubtitle}>AI가 메모 작성을 도와드립니다</Text>
+
+            <TouchableOpacity
+              style={styles.aiMenuItem}
+              onPress={handleAIGenerateTitle}
+            >
+              <Text style={styles.aiMenuIcon}>✨</Text>
+              <View style={styles.aiMenuTextContainer}>
+                <Text style={styles.aiMenuItemTitle}>제목 자동 생성</Text>
+                <Text style={styles.aiMenuItemDesc}>내용을 바탕으로 적절한 제목을 추천합니다</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.aiMenuItem}
+              onPress={handleAISummarize}
+            >
+              <Text style={styles.aiMenuIcon}>📝</Text>
+              <View style={styles.aiMenuTextContainer}>
+                <Text style={styles.aiMenuItemTitle}>내용 요약</Text>
+                <Text style={styles.aiMenuItemDesc}>긴 내용을 핵심만 간추려 요약합니다</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.aiMenuItem}
+              onPress={handleAIExpand}
+            >
+              <Text style={styles.aiMenuIcon}>📖</Text>
+              <View style={styles.aiMenuTextContainer}>
+                <Text style={styles.aiMenuItemTitle}>내용 확장</Text>
+                <Text style={styles.aiMenuItemDesc}>간단한 메모를 더 자세하게 확장합니다</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.folderPickerCancel}
+              onPress={() => setShowAIMenu(false)}
+            >
+              <Text style={styles.folderPickerCancelText}>닫기</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -889,5 +1330,276 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  linkSection: {
+    marginTop: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  linkSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+  },
+  linkItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  linkIcon: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  linkTextContainer: {
+    flex: 1,
+  },
+  linkTitle: {
+    fontSize: 15,
+    color: "#333",
+    marginBottom: 2,
+  },
+  linkUrl: {
+    fontSize: 12,
+    color: "#666",
+  },
+  deleteLinkButton: {
+    padding: 8,
+  },
+  deleteLinkIcon: {
+    fontSize: 20,
+    color: "#999",
+    fontWeight: "600",
+  },
+  addLinkButton: {
+    backgroundColor: "#F5F5F0",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addLinkButtonText: {
+    fontSize: 14,
+    color: "#1B5E3C",
+    fontWeight: "500",
+  },
+  linkInputContainer: {
+    marginTop: 8,
+  },
+  linkUrlInput: {
+    backgroundColor: "#F5F5F0",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 8,
+  },
+  linkTitleInput: {
+    backgroundColor: "#F5F5F0",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 12,
+  },
+  linkInputButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  linkCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: "#E0E0E0",
+  },
+  linkCancelButtonText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  linkAddConfirmButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: "#1B5E3C",
+  },
+  linkAddConfirmButtonText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "500",
+  },
+  imageSection: {
+    marginTop: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    marginBottom: 20,
+  },
+  imageSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+  },
+  imageScrollView: {
+    marginBottom: 12,
+  },
+  imageContainer: {
+    position: "relative",
+    marginRight: 12,
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+  },
+  deleteImageButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: "#F44336",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteImageIcon: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  imageButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  imageButton: {
+    flex: 1,
+    backgroundColor: "#F5F5F0",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  imageButtonIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  imageButtonText: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
+  },
+  formatToolbar: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    gap: 8,
+  },
+  formatButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    backgroundColor: "#F5F5F0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  formatButtonTextBold: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+  },
+  formatButtonTextItalic: {
+    fontSize: 18,
+    fontStyle: "italic",
+    color: "#333",
+  },
+  formatButtonTextStrike: {
+    fontSize: 18,
+    textDecorationLine: "line-through",
+    color: "#333",
+  },
+  formatButtonTextCode: {
+    fontSize: 14,
+    fontFamily: "monospace",
+    color: "#333",
+  },
+  formatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 4,
+  },
+  aiButton: {
+    backgroundColor: "#8B5CF6",
+    paddingHorizontal: 12,
+    width: "auto",
+  },
+  aiButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  aiMenuContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    width: "85%",
+    maxHeight: "70%",
+  },
+  aiMenuTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  aiMenuSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  aiMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F5F0",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  aiMenuIcon: {
+    fontSize: 28,
+    marginRight: 16,
+  },
+  aiMenuTextContainer: {
+    flex: 1,
+  },
+  aiMenuItemTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  aiMenuItemDesc: {
+    fontSize: 13,
+    color: "#666",
   },
 });

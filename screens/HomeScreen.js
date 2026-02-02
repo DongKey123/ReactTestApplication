@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   StyleSheet,
   Text,
   View,
   FlatList,
   TouchableOpacity,
+  Animated,
+  Alert,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { useMemos } from "../context/MemoContext";
 import {
@@ -14,8 +17,10 @@ import {
   getCurrentYearHolidayMarkers,
 } from "../data/holidays";
 
-// 체크리스트 토글 함수를 받는 MemoCard
-function MemoCard({ item, onPress, onToggleCheck }) {
+// 스와이프 가능한 MemoCard
+function MemoCard({ item, onPress, onToggleCheck, onToggleBookmark, onDelete }) {
+  const swipeableRef = useRef(null);
+
   const formatTime = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -36,41 +41,121 @@ function MemoCard({ item, onPress, onToggleCheck }) {
     }
   };
 
+  // 왼쪽 스와이프 액션 (북마크)
+  const renderLeftActions = (progress, dragX) => {
+    const scale = dragX.interpolate({
+      inputRange: [0, 80],
+      outputRange: [0.5, 1],
+      extrapolate: "clamp",
+    });
+
+    return (
+      <TouchableOpacity
+        style={styles.swipeActionLeft}
+        onPress={() => {
+          onToggleBookmark(item.id);
+          swipeableRef.current?.close();
+        }}
+      >
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Text style={styles.swipeActionIcon}>
+            {item.bookmarked ? "📑" : "🔖"}
+          </Text>
+          <Text style={styles.swipeActionText}>
+            {item.bookmarked ? "해제" : "북마크"}
+          </Text>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
+
+  // 오른쪽 스와이프 액션 (삭제)
+  const renderRightActions = (progress, dragX) => {
+    const scale = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [1, 0.5],
+      extrapolate: "clamp",
+    });
+
+    return (
+      <TouchableOpacity
+        style={styles.swipeActionRight}
+        onPress={() => {
+          Alert.alert("메모 삭제", "이 메모를 삭제하시겠습니까?", [
+            { text: "취소", style: "cancel", onPress: () => swipeableRef.current?.close() },
+            {
+              text: "삭제",
+              style: "destructive",
+              onPress: () => onDelete(item.id),
+            },
+          ]);
+        }}
+      >
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Text style={styles.swipeActionIcon}>🗑️</Text>
+          <Text style={styles.swipeActionTextDelete}>삭제</Text>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
-      <Text style={styles.cardTitle}>{item.title}</Text>
-      <Text style={styles.cardContent} numberOfLines={2}>
-        {item.content}
-      </Text>
-      {item.checklist && item.checklist.length > 0 && (
-        <View style={styles.checklistContainer}>
-          {item.checklist.slice(0, 3).map((check) => (
-            <TouchableOpacity
-              key={check.id}
-              style={styles.checkItem}
-              onPress={(e) => {
-                e.stopPropagation();
-                onToggleCheck(item.id, check.id);
-              }}
-            >
-              <Text style={styles.checkbox}>{check.checked ? "☑" : "☐"}</Text>
-              <Text
-                style={[styles.checkText, check.checked && styles.checkedText]}
-                numberOfLines={1}
-              >
-                {check.text}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          {item.checklist.length > 3 && (
-            <Text style={styles.moreChecklist}>
-              +{item.checklist.length - 3}개 더보기
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={renderLeftActions}
+      renderRightActions={renderRightActions}
+      overshootLeft={false}
+      overshootRight={false}
+      friction={2}
+    >
+      <TouchableOpacity style={styles.card} onPress={onPress}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+          <TouchableOpacity
+            style={styles.bookmarkButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onToggleBookmark(item.id);
+            }}
+          >
+            <Text style={styles.bookmarkIcon}>
+              {item.bookmarked ? "🔖" : "📑"}
             </Text>
-          )}
+          </TouchableOpacity>
         </View>
-      )}
-      <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
-    </TouchableOpacity>
+        <Text style={styles.cardContent} numberOfLines={2}>
+          {item.content}
+        </Text>
+        {item.checklist && item.checklist.length > 0 && (
+          <View style={styles.checklistContainer}>
+            {item.checklist.slice(0, 3).map((check) => (
+              <TouchableOpacity
+                key={check.id}
+                style={styles.checkItem}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onToggleCheck(item.id, check.id);
+                }}
+              >
+                <Text style={styles.checkbox}>{check.checked ? "☑" : "☐"}</Text>
+                <Text
+                  style={[styles.checkText, check.checked && styles.checkedText]}
+                  numberOfLines={1}
+                >
+                  {check.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {item.checklist.length > 3 && (
+              <Text style={styles.moreChecklist}>
+                +{item.checklist.length - 3}개 더보기
+              </Text>
+            )}
+          </View>
+        )}
+        <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
+      </TouchableOpacity>
+    </Swipeable>
   );
 }
 
@@ -91,10 +176,11 @@ LocaleConfig.locales["ko"] = {
 LocaleConfig.defaultLocale = "ko";
 
 export default function HomeScreen({ navigation }) {
-  const { memos, updateMemo } = useMemos();
+  const { memos, updateMemo, toggleBookmark, getBookmarkedMemos, deleteMemo } = useMemos();
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
 
   const handleMemoPress = (memo) => {
     navigation.navigate("MemoDetail", { memo });
@@ -118,8 +204,11 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
-  // 선택된 날짜의 메모 필터링
+  // 선택된 날짜의 메모 필터링 (북마크 필터 적용)
   const filteredMemos = memos.filter((memo) => {
+    if (showBookmarkedOnly) {
+      return memo.bookmarked;
+    }
     const memoDate = new Date(memo.createdAt).toISOString().split("T")[0];
     return memoDate === selectedDate;
   });
@@ -226,17 +315,30 @@ export default function HomeScreen({ navigation }) {
         }}
       />
       <View style={styles.dateHeader}>
-        <Text style={styles.selectedDateText}>
-          {new Date(selectedDate).toLocaleDateString("ko-KR", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "long",
-          })}
-        </Text>
-        {holidayName && (
-          <Text style={styles.holidayBadge}>{holidayName}</Text>
-        )}
+        <View style={styles.dateHeaderLeft}>
+          <Text style={styles.selectedDateText}>
+            {showBookmarkedOnly ? "북마크된 메모" : new Date(selectedDate).toLocaleDateString("ko-KR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              weekday: "long",
+            })}
+          </Text>
+          {holidayName && !showBookmarkedOnly && (
+            <Text style={styles.holidayBadge}>{holidayName}</Text>
+          )}
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.bookmarkFilterButton,
+            showBookmarkedOnly && styles.bookmarkFilterActive,
+          ]}
+          onPress={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+        >
+          <Text style={styles.bookmarkFilterIcon}>
+            {showBookmarkedOnly ? "🔖" : "📑"}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -251,17 +353,25 @@ export default function HomeScreen({ navigation }) {
             item={item}
             onPress={() => handleMemoPress(item)}
             onToggleCheck={handleToggleCheck}
+            onToggleBookmark={toggleBookmark}
+            onDelete={deleteMemo}
           />
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {holidayName
+              {showBookmarkedOnly
+                ? "북마크된 메모가 없습니다"
+                : holidayName
                 ? `${holidayName}입니다`
                 : "이 날짜에 메모가 없습니다"}
             </Text>
-            <Text style={styles.emptySubText}>새 메모를 작성해보세요</Text>
+            <Text style={styles.emptySubText}>
+              {showBookmarkedOnly
+                ? "메모를 북마크해보세요"
+                : "새 메모를 작성해보세요"}
+            </Text>
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -321,14 +431,31 @@ const styles = StyleSheet.create({
   dateHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginTop: 8,
+  },
+  dateHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   selectedDateText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+  },
+  bookmarkFilterButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#F5F5F0",
+  },
+  bookmarkFilterActive: {
+    backgroundColor: "#1B5E3C",
+  },
+  bookmarkFilterIcon: {
+    fontSize: 20,
   },
   holidayBadge: {
     marginLeft: 8,
@@ -369,11 +496,24 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 8,
+    flex: 1,
+  },
+  bookmarkButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  bookmarkIcon: {
+    fontSize: 18,
   },
   cardContent: {
     fontSize: 14,
@@ -412,5 +552,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     textAlign: "right",
+  },
+  swipeActionLeft: {
+    backgroundColor: "#1B5E3C",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    marginTop: 8,
+    marginLeft: 16,
+    borderRadius: 12,
+    marginBottom: 0,
+  },
+  swipeActionRight: {
+    backgroundColor: "#F44336",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    marginTop: 8,
+    marginRight: 16,
+    borderRadius: 12,
+    marginBottom: 0,
+  },
+  swipeActionIcon: {
+    fontSize: 24,
+    textAlign: "center",
+  },
+  swipeActionText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  swipeActionTextDelete: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
   },
 });

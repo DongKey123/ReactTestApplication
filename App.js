@@ -1,9 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { MemoProvider } from './context/MemoContext';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MemoProvider, useMemos } from './context/MemoContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
@@ -11,6 +13,16 @@ import CreateScreen from './screens/CreateScreen';
 import MemoScreen from './screens/MemoScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import MemoDetailScreen from './screens/MemoDetailScreen';
+
+// 로딩 화면 컴포넌트
+function LoadingScreen() {
+  return (
+    <View style={styles.loadingContainer}>
+      <Text style={styles.loadingLogo}>Jot</Text>
+      <ActivityIndicator size="large" color="#1B5E3C" style={styles.loadingIndicator} />
+    </View>
+  );
+}
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -32,6 +44,42 @@ function TabIcon({ icon, focused }) {
     <Text style={[styles.tabIcon, focused && styles.tabIconActive]}>
       {icon}
     </Text>
+  );
+}
+
+// 앱 콘텐츠 (로딩 체크)
+function AppContent() {
+  const { isLoading } = useMemos();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <>
+      <Stack.Navigator>
+        <Stack.Screen
+          name="Main"
+          component={TabNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="MemoDetail"
+          component={MemoDetailScreen}
+          options={{
+            headerTitle: '메모 상세',
+            headerStyle: {
+              backgroundColor: '#FFFFFF',
+            },
+            headerTintColor: '#333',
+            headerTitleStyle: {
+              fontWeight: '600',
+            },
+          }}
+        />
+      </Stack.Navigator>
+      <StatusBar style="dark" />
+    </>
   );
 }
 
@@ -114,36 +162,34 @@ function TabNavigator() {
 
 export default function App() {
   return (
-    <MemoProvider>
-      <NavigationContainer>
-        <Stack.Navigator>
-          <Stack.Screen
-            name="Main"
-            component={TabNavigator}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="MemoDetail"
-            component={MemoDetailScreen}
-            options={{
-              headerTitle: '메모 상세',
-              headerStyle: {
-                backgroundColor: '#FFFFFF',
-              },
-              headerTintColor: '#333',
-              headerTitleStyle: {
-                fontWeight: '600',
-              },
-            }}
-          />
-        </Stack.Navigator>
-        <StatusBar style="dark" />
-      </NavigationContainer>
-    </MemoProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <MemoProvider>
+          <NavigationContainer>
+            <AppContent />
+          </NavigationContainer>
+        </MemoProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F5F5F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingLogo: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#1B5E3C',
+    marginBottom: 20,
+  },
+  loadingIndicator: {
+    marginTop: 10,
+  },
   tabBar: {
     height: 60,
     backgroundColor: '#FFFFFF',

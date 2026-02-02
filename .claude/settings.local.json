@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npx expo install:*)",
+      "Bash(npx expo start:*)",
+      "Bash(timeout:*)",
+      "Bash(adb shell am:*)",
+      "Bash(cmd /c \"%LOCALAPPDATA%\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe shell am force-stop host.exp.exponent\")",
+      "Bash(cmd /c \"%LOCALAPPDATA%\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe shell am start -a android.intent.action.VIEW -d exp://125.143.197.11:8082\")",
+      "Bash(npm install:*)"
     ]
   }
 }
