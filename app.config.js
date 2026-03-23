@@ -5,11 +5,11 @@
 export default {
   expo: {
     // App name - displayed in app stores and on devices
-    name: "ReactTestApplication",
+    name: "MemoAI",
 
     // slug - URL-friendly name that identifies the app in Expo services
-    // Example: exp://exp.host/@username/ReactTestApplication
-    slug: "ReactTestApplication",
+    // Example: exp://exp.host/@username/memoai
+    slug: "memoai",
 
     // App version - version number displayed in app stores
     version: "1.0.0",
@@ -45,11 +45,15 @@ export default {
     // iOS platform-specific settings
     ios: {
       // iPad support
-      supportsTablet: true
+      supportsTablet: true,
+      // Bundle identifier for App Store (reverse domain, cannot be changed after publishing)
+      bundleIdentifier: "com.youngjong.memoai"
     },
 
     // Android platform-specific settings
     android: {
+      // Package name for Google Play Store (reverse domain, cannot be changed after publishing)
+      package: "com.youngjong.memoai",
       // Android adaptive icon configuration (Android 8.0+)
       // Icon shape changes to match different device themes
       adaptiveIcon: {
@@ -68,6 +72,12 @@ export default {
     web: {
       // Favicon displayed in browser tab
       favicon: "./assets/favicon.png"
+    },
+
+    extra: {
+      eas: {
+        projectId: "d4029401-7d01-41d3-a77d-9830cabc1f9c"
+      }
     }
   }
 };

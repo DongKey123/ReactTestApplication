@@ -4,9 +4,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const MemoContext = createContext();
 
 const STORAGE_KEYS = {
-  MEMOS: "@jot_memos",
-  FOLDERS: "@jot_folders",
-  RECENT_SEARCHES: "@jot_recent_searches",
+  MEMOS: "@memoai_memos",
+  FOLDERS: "@memoai_folders",
+  RECENT_SEARCHES: "@memoai_recent_searches",
 };
 
 const MAX_RECENT_SEARCHES = 10;

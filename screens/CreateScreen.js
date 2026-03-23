@@ -13,6 +13,7 @@ import { useState, useLayoutEffect, useEffect, useRef, useCallback } from "react
 import FormattedText from "../components/FormattedText";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import { useMemos } from "../context/MemoContext";
 import { isHoliday, getHolidayName } from "../data/holidays";
 import {
@@ -161,6 +162,17 @@ export default function CreateScreen({ navigation, route }) {
   };
 
   // 이미지 관련 함수들
+  const saveImagePermanently = async (sourceUri) => {
+    try {
+      const filename = `memoai_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+      const destUri = FileSystem.documentDirectory + filename;
+      await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+      return destUri;
+    } catch {
+      return sourceUri;
+    }
+  };
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -169,16 +181,18 @@ export default function CreateScreen({ navigation, route }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsMultipleSelection: true,
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets) {
-      const newImages = result.assets.map((asset) => ({
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        uri: asset.uri,
-      }));
+      const newImages = await Promise.all(
+        result.assets.map(async (asset) => ({
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          uri: await saveImagePermanently(asset.uri),
+        }))
+      );
       setImages([...images, ...newImages]);
     }
   };
@@ -197,7 +211,7 @@ export default function CreateScreen({ navigation, route }) {
     if (!result.canceled && result.assets) {
       const newImage = {
         id: Date.now().toString(),
-        uri: result.assets[0].uri,
+        uri: await saveImagePermanently(result.assets[0].uri),
       };
       setImages([...images, newImage]);
     }
@@ -264,7 +278,7 @@ export default function CreateScreen({ navigation, route }) {
       const generatedTitle = await generateTitle(content);
       if (generatedTitle) {
         Alert.alert(
-          "AI 제목 추천",
+          "제목 추천",
           `추천 제목: "${generatedTitle}"`,
           [
             { text: "취소", style: "cancel" },
@@ -278,7 +292,7 @@ export default function CreateScreen({ navigation, route }) {
         Alert.alert("알림", "제목을 생성할 수 없습니다. 내용을 더 입력해주세요.");
       }
     } catch (error) {
-      Alert.alert("오류", "AI 제목 생성 중 오류가 발생했습니다.");
+      Alert.alert("오류", "제목 생성 중 오류가 발생했습니다.");
     } finally {
       setAiLoading(false);
     }
@@ -298,7 +312,7 @@ export default function CreateScreen({ navigation, route }) {
       const summary = await summarizeContent(content);
       if (summary) {
         Alert.alert(
-          "AI 요약",
+          "내용 요약",
           summary,
           [
             { text: "닫기", style: "cancel" },
@@ -316,7 +330,7 @@ export default function CreateScreen({ navigation, route }) {
         Alert.alert("알림", "요약을 생성할 수 없습니다.");
       }
     } catch (error) {
-      Alert.alert("오류", "AI 요약 중 오류가 발생했습니다.");
+      Alert.alert("오류", "요약 중 오류가 발생했습니다.");
     } finally {
       setAiLoading(false);
     }
@@ -336,7 +350,7 @@ export default function CreateScreen({ navigation, route }) {
       const expanded = await expandContent(content, "detailed");
       if (expanded) {
         Alert.alert(
-          "AI 확장",
+          "내용 확장",
           "내용이 확장되었습니다.",
           [
             { text: "취소", style: "cancel" },
@@ -350,7 +364,7 @@ export default function CreateScreen({ navigation, route }) {
         Alert.alert("알림", "내용을 확장할 수 없습니다.");
       }
     } catch (error) {
-      Alert.alert("오류", "AI 확장 중 오류가 발생했습니다.");
+      Alert.alert("오류", "내용 확장 중 오류가 발생했습니다.");
     } finally {
       setAiLoading(false);
     }
@@ -468,7 +482,7 @@ export default function CreateScreen({ navigation, route }) {
         </View>
       ),
     });
-  }, [navigation, title, content, isEditMode, saveStatus]);
+  }, [navigation, title, content, isEditMode, saveStatus, links, checklist, images, selectedFolder, selectedDate]);
 
   const selectedFolderData = folders.find((f) => f.id === selectedFolder);
 
@@ -575,7 +589,7 @@ export default function CreateScreen({ navigation, route }) {
             {aiLoading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.aiButtonText}>AI</Text>
+              <Text style={styles.aiButtonText}>✏️</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -932,8 +946,8 @@ export default function CreateScreen({ navigation, route }) {
             onPress={() => setShowAIMenu(false)}
           />
           <View style={styles.aiMenuContainer}>
-            <Text style={styles.aiMenuTitle}>AI 도우미</Text>
-            <Text style={styles.aiMenuSubtitle}>AI가 메모 작성을 도와드립니다</Text>
+            <Text style={styles.aiMenuTitle}>글쓰기 도우미</Text>
+            <Text style={styles.aiMenuSubtitle}>메모 작성을 도와드립니다</Text>
 
             <TouchableOpacity
               style={styles.aiMenuItem}

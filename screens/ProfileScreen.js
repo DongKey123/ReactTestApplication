@@ -1,6 +1,26 @@
-import { StyleSheet, Text, View, TouchableOpacity, Switch, ScrollView } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, Switch, ScrollView, Alert, Modal } from "react-native";
+import { useState } from "react";
 import { useMemos } from "../context/MemoContext";
 import { useTheme } from "../context/ThemeContext";
+
+const PRIVACY_POLICY = `개인정보처리방침
+
+1. 수집하는 정보
+MemoAI은 외부 서버에 어떠한 개인정보도 전송하지 않습니다. 모든 메모 데이터는 사용자 기기 내 로컬 저장소에만 저장됩니다.
+
+2. 권한 사용
+• 카메라: 메모에 사진 첨부 시에만 사용
+• 사진 라이브러리: 메모에 이미지 첨부 시에만 사용
+
+모든 권한은 해당 기능 사용 시에만 요청되며, 외부로 전송되지 않습니다.
+
+3. 제3자 제공
+수집된 정보를 제3자에게 제공하지 않습니다.
+
+4. 데이터 삭제
+앱을 삭제하면 모든 데이터가 기기에서 완전히 삭제됩니다.
+
+최종 업데이트: 2026년 3월`;
 
 function StatCard({ value, label, theme }) {
   return (
@@ -25,11 +45,33 @@ function MenuItem({ icon, label, onPress, rightComponent, theme }) {
   );
 }
 
+function InfoModal({ visible, title, onClose, theme, children }) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContainer, { backgroundColor: theme.card }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{title}</Text>
+          <ScrollView style={styles.modalScroll}>
+            {children}
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.modalCloseButton, { backgroundColor: theme.primary }]}
+            onPress={onClose}
+          >
+            <Text style={styles.modalCloseText}>닫기</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function ProfileScreen() {
   const { memos, folders } = useMemos();
   const { isDarkMode, toggleTheme, theme } = useTheme();
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showAppInfo, setShowAppInfo] = useState(false);
 
-  // 통계 계산
   const totalMemos = memos.length;
   const bookmarkedMemos = memos.filter(m => m.bookmarked).length;
 
@@ -48,13 +90,17 @@ export default function ProfileScreen() {
   const totalLinks = memos.reduce((sum, m) => sum + (m.links?.length || 0), 0);
   const totalImages = memos.reduce((sum, m) => sum + (m.images?.length || 0), 0);
 
+  const handleComingSoon = (featureName) => {
+    Alert.alert("준비 중", `${featureName} 기능은 추후 업데이트에서 제공될 예정입니다.`);
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.profileSection}>
         <View style={[styles.avatar, { backgroundColor: theme.border }]}>
           <Text style={styles.avatarText}>👤</Text>
         </View>
-        <Text style={[styles.userName, { color: theme.text }]}>Jot 사용자</Text>
+        <Text style={[styles.userName, { color: theme.text }]}>MemoAI 사용자</Text>
         <Text style={[styles.userEmail, { color: theme.textSecondary }]}>메모를 시작하세요</Text>
       </View>
 
@@ -106,21 +152,75 @@ export default function ProfileScreen() {
             />
           }
         />
-        <MenuItem icon="🔔" label="알림 설정" theme={theme} />
-        <MenuItem icon="☁️" label="동기화 설정" theme={theme} />
+        <MenuItem
+          icon="🔔"
+          label="알림 설정"
+          theme={theme}
+          onPress={() => handleComingSoon("알림 설정")}
+        />
+        <MenuItem
+          icon="☁️"
+          label="동기화 설정"
+          theme={theme}
+          onPress={() => handleComingSoon("동기화 설정")}
+        />
       </View>
 
       <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
       <View style={styles.menuSection}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>정보</Text>
-        <MenuItem icon="❓" label="도움말" theme={theme} />
-        <MenuItem icon="ℹ️" label="앱 정보" theme={theme} />
+        <MenuItem
+          icon="❓"
+          label="도움말"
+          theme={theme}
+          onPress={() => handleComingSoon("도움말")}
+        />
+        <MenuItem
+          icon="🔒"
+          label="개인정보처리방침"
+          theme={theme}
+          onPress={() => setShowPrivacy(true)}
+        />
+        <MenuItem
+          icon="ℹ️"
+          label="앱 정보"
+          theme={theme}
+          onPress={() => setShowAppInfo(true)}
+        />
       </View>
 
       <View style={styles.versionSection}>
-        <Text style={[styles.versionText, { color: theme.textMuted }]}>Jot v1.0.0</Text>
+        <Text style={[styles.versionText, { color: theme.textMuted }]}>MemoAI v1.0.0</Text>
       </View>
+
+      {/* 개인정보처리방침 Modal */}
+      <InfoModal
+        visible={showPrivacy}
+        title="개인정보처리방침"
+        onClose={() => setShowPrivacy(false)}
+        theme={theme}
+      >
+        <Text style={[styles.modalBody, { color: theme.text }]}>{PRIVACY_POLICY}</Text>
+      </InfoModal>
+
+      {/* 앱 정보 Modal */}
+      <InfoModal
+        visible={showAppInfo}
+        title="앱 정보"
+        onClose={() => setShowAppInfo(false)}
+        theme={theme}
+      >
+        <View style={styles.appInfoContent}>
+          <Text style={[styles.appInfoName, { color: theme.text }]}>MemoAI</Text>
+          <Text style={[styles.appInfoVersion, { color: theme.textSecondary }]}>버전 1.0.0</Text>
+          <Text style={[styles.appInfoDesc, { color: theme.text }]}>
+            간편하고 빠른 메모 앱{"\n\n"}
+            모든 데이터는 기기 내에만 저장되며{"\n"}
+            외부로 전송되지 않습니다.
+          </Text>
+        </View>
+      </InfoModal>
     </ScrollView>
   );
 }
@@ -234,5 +334,58 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 12,
+  },
+  // Modal 스타일
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  modalCloseButton: {
+    marginTop: 20,
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 10,
+  },
+  modalCloseText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  appInfoContent: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  appInfoName: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  appInfoVersion: {
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  appInfoDesc: {
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: "center",
   },
 });

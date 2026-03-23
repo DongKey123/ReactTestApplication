@@ -19,7 +19,7 @@ export default function MemoDetailScreen({ route, navigation }) {
   const currentMemo = memos.find((m) => m.id === memo.id) || memo;
 
   const handleEdit = () => {
-    navigation.navigate("Create", { editMemo: currentMemo });
+    navigation.navigate("EditMemo", { editMemo: currentMemo });
   };
 
   const handleDelete = () => {

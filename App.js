@@ -18,7 +18,7 @@ import MemoDetailScreen from './screens/MemoDetailScreen';
 function LoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
-      <Text style={styles.loadingLogo}>Jot</Text>
+      <Text style={styles.loadingLogo}>MemoAI</Text>
       <ActivityIndicator size="large" color="#1B5E3C" style={styles.loadingIndicator} />
     </View>
   );
@@ -77,6 +77,15 @@ function AppContent() {
             },
           }}
         />
+        <Stack.Screen
+          name="EditMemo"
+          component={CreateScreen}
+          options={{
+            headerStyle: { backgroundColor: '#FFFFFF' },
+            headerTintColor: '#333',
+            headerTitleStyle: { fontWeight: '600' },
+          }}
+        />
       </Stack.Navigator>
       <StatusBar style="dark" />
     </>
@@ -110,7 +119,7 @@ function TabNavigator() {
           component={HomeScreen}
           options={{
             tabBarLabel: '목록',
-            headerTitle: 'Jot',
+            headerTitle: 'MemoAI',
             tabBarIcon: ({ focused }) => <TabIcon icon="≡" focused={focused} />,
           }}
         />

@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ThemeContext = createContext();
 
-const THEME_STORAGE_KEY = "@jot_theme";
+const THEME_STORAGE_KEY = "@memoai_theme";
 
 export const lightTheme = {
   background: "#F5F5F0",

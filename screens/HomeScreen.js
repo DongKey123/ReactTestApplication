@@ -200,7 +200,9 @@ export default function HomeScreen({ navigation }) {
       memo.content,
       memo.folderId,
       memo.createdAt,
-      updatedChecklist
+      updatedChecklist,
+      memo.links,
+      memo.images
     );
   };
 
