@@ -1,25 +1,36 @@
-import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { MemoProvider, useMemos } from './context/MemoContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { StatusBar } from "expo-status-bar";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { MemoProvider, useMemos } from "./context/MemoContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
-import HomeScreen from './screens/HomeScreen';
-import SearchScreen from './screens/SearchScreen';
-import CreateScreen from './screens/CreateScreen';
-import MemoScreen from './screens/MemoScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import MemoDetailScreen from './screens/MemoDetailScreen';
+import HomeScreen from "./screens/HomeScreen";
+import SearchScreen from "./screens/SearchScreen";
+import CreateScreen from "./screens/CreateScreen";
+import MemoScreen from "./screens/MemoScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+import MemoDetailScreen from "./screens/MemoDetailScreen";
 
 // 로딩 화면 컴포넌트
 function LoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
       <Text style={styles.loadingLogo}>MemoAI</Text>
-      <ActivityIndicator size="large" color="#1B5E3C" style={styles.loadingIndicator} />
+      <ActivityIndicator
+        size="large"
+        color="#1B5E3C"
+        style={styles.loadingIndicator}
+      />
     </View>
   );
 }
@@ -67,13 +78,13 @@ function AppContent() {
           name="MemoDetail"
           component={MemoDetailScreen}
           options={{
-            headerTitle: '메모 상세',
+            headerTitle: "메모 상세",
             headerStyle: {
-              backgroundColor: '#FFFFFF',
+              backgroundColor: "#FFFFFF",
             },
-            headerTintColor: '#333',
+            headerTintColor: "#333",
             headerTitleStyle: {
-              fontWeight: '600',
+              fontWeight: "600",
             },
           }}
         />
@@ -81,9 +92,9 @@ function AppContent() {
           name="EditMemo"
           component={CreateScreen}
           options={{
-            headerStyle: { backgroundColor: '#FFFFFF' },
-            headerTintColor: '#333',
-            headerTitleStyle: { fontWeight: '600' },
+            headerStyle: { backgroundColor: "#FFFFFF" },
+            headerTintColor: "#333",
+            headerTitleStyle: { fontWeight: "600" },
           }}
         />
       </Stack.Navigator>
@@ -96,89 +107,89 @@ function AppContent() {
 function TabNavigator() {
   return (
     <Tab.Navigator
-        screenOptions={{
-          tabBarActiveTintColor: '#1B5E3C',
-          tabBarInactiveTintColor: '#999999',
-          tabBarStyle: styles.tabBar,
-          tabBarLabelStyle: styles.tabBarLabel,
-          headerStyle: {
-            backgroundColor: '#FFFFFF',
-            elevation: 0,
-            shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: '#E0E0E0',
-          },
-          headerTintColor: '#333',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
+      screenOptions={{
+        tabBarActiveTintColor: "#1B5E3C",
+        tabBarInactiveTintColor: "#999999",
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.tabBarLabel,
+        headerStyle: {
+          backgroundColor: "#FFFFFF",
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: "#E0E0E0",
+        },
+        headerTintColor: "#333",
+        headerTitleStyle: {
+          fontWeight: "600",
+        },
+      }}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: "목록",
+          headerTitle: "MemoAI",
+          tabBarIcon: ({ focused }) => <TabIcon icon="≡" focused={focused} />,
         }}
-      >
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            tabBarLabel: '목록',
-            headerTitle: 'MemoAI',
-            tabBarIcon: ({ focused }) => <TabIcon icon="≡" focused={focused} />,
-          }}
-        />
-        <Tab.Screen
-          name="Search"
-          component={SearchScreen}
-          options={{
-            tabBarLabel: '검색',
-            headerTitle: '검색',
-            tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} />,
-          }}
-        />
-        <Tab.Screen
-          name="Create"
-          component={CreateScreen}
-          options={{
-            tabBarLabel: '',
-            headerTitle: '새 메모',
-            tabBarButton: (props) => <CreateTabButton {...props} />,
-            headerLeft: () => (
-              <Text style={styles.headerButton}>취소</Text>
-            ),
-            headerRight: () => (
-              <Text style={styles.headerButtonPrimary}>저장</Text>
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Memo"
-          component={MemoScreen}
-          options={{
-            tabBarLabel: '메모',
-            headerTitle: '메모',
-            tabBarIcon: ({ focused }) => <TabIcon icon="▢" focused={focused} />,
-          }}
-        />
-        <Tab.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{
-            tabBarLabel: '프로필',
-            headerTitle: '프로필',
-            tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} />,
-          }}
-        />
-      </Tab.Navigator>
+      />
+      <Tab.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{
+          tabBarLabel: "검색",
+          headerTitle: "검색",
+          tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Create"
+        component={CreateScreen}
+        options={{
+          tabBarLabel: "",
+          headerTitle: "새 메모",
+          tabBarButton: (props) => <CreateTabButton {...props} />,
+          headerLeft: () => <Text style={styles.headerButton}>취소</Text>,
+          headerRight: () => (
+            <Text style={styles.headerButtonPrimary}>저장</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Memo"
+        component={MemoScreen}
+        options={{
+          tabBarLabel: "메모",
+          headerTitle: "메모",
+          tabBarIcon: ({ focused }) => <TabIcon icon="▢" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: "프로필",
+          headerTitle: "프로필",
+          tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} />,
+        }}
+      />
+    </Tab.Navigator>
   );
 }
 
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <MemoProvider>
-          <NavigationContainer>
-            <AppContent />
-          </NavigationContainer>
-        </MemoProvider>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <MemoProvider>
+            <NavigationContainer>
+              <AppContent />
+            </NavigationContainer>
+          </MemoProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
@@ -186,51 +197,48 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F5F5F0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingLogo: {
     fontSize: 48,
-    fontWeight: 'bold',
-    color: '#1B5E3C',
+    fontWeight: "bold",
+    color: "#1B5E3C",
     marginBottom: 20,
   },
   loadingIndicator: {
     marginTop: 10,
   },
   tabBar: {
-    height: 60,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    paddingBottom: 8,
-    paddingTop: 8,
+    borderTopColor: "#E0E0E0",
   },
   tabBarLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   tabIcon: {
     fontSize: 20,
-    color: '#999999',
+    color: "#999999",
   },
   tabIconActive: {
-    color: '#1B5E3C',
+    color: "#1B5E3C",
   },
   createButton: {
     top: -20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   createButtonInner: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1B5E3C',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#1B5E3C',
+    backgroundColor: "#1B5E3C",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#1B5E3C",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -238,19 +246,19 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     fontSize: 32,
-    color: '#FFFFFF',
-    fontWeight: '300',
+    color: "#FFFFFF",
+    fontWeight: "300",
     marginTop: -2,
   },
   headerButton: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     paddingHorizontal: 16,
   },
   headerButtonPrimary: {
     fontSize: 16,
-    color: '#1B5E3C',
-    fontWeight: '600',
+    color: "#1B5E3C",
+    fontWeight: "600",
     paddingHorizontal: 16,
   },
 });
